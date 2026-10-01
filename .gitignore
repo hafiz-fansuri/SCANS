@@ -1,0 +1,13 @@
+node_modules/
+ngrok/ngrok.exe
+*.exe
+*.bin
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+.env
+*.sqlite
+*.db

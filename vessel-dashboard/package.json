@@ -1,0 +1,13 @@
+{
+  "name": "vessel-dashboard-server",
+  "version": "1.0.0",
+  "description": "Relays vessel inference data from Python to the browser dashboard over WebSocket",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}

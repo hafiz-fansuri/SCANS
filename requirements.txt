@@ -1,0 +1,19 @@
+# SCANS — Python dependencies
+# Install:  pip install -r requirements.txt
+
+# ── Core inference bridge (main.py) ──────────────────────────
+numpy>=1.26
+torch>=2.0
+xgboost>=2.0
+scikit-learn>=1.4
+paho-mqtt>=1.6
+matplotlib>=3.7
+requests>=2.31
+
+# ── Post-cruise analysis (analysis.py) ──────────────────────
+pandas>=2.0
+
+# ── Model export / ONNX tooling (Training/co.py) ─────────────
+onnxmltools>=1.16
+onnx>=1.14
+onnxmltools[convert][xgboost]

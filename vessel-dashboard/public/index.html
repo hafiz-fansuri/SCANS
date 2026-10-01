@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Vessel Speed Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600;700&display=swap">
+<style>
+:root {
+  --bg:       #080b10;
+  --bg2:      #0e1620;
+  --bg3:      #060810;
+  --border:   #1e2d3d;
+  --text:     #ffffff;
+  --muted:    #7090a0;
+  --muted2:   #506070;
+  --blue:     #4da6ff;
+  --green:    #1aff6e;
+  --cyan:     #00e5ff;
+  --purple:   #cc88ff;
+  --amber:    #ffcc00;
+  --red:      #ff4444;
+  --pad:      16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px var(--pad);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; gap: 10px; flex-wrap: wrap;
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.logo { font-family: 'JetBrains Mono',monospace; font-size: 12px; color: var(--blue); letter-spacing: 2px; font-weight: 700; white-space: nowrap; }
+.title { font-size: 13px; font-weight: 600; color: var(--text); }
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.conn-dot.on    { background: var(--green);  animation: pulse 2s infinite; }
+.conn-dot.off   { background: var(--red); }
+.conn-dot.stale { background: var(--amber); animation: pulse 1s infinite; }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.conn-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+.ts-display { font-family: 'JetBrains Mono',monospace; font-size: 11px; color: var(--muted2); font-weight: 600; }
+.sound-btn {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--muted); font-size: 11px; font-weight: 700; padding: 4px 8px;
+  cursor: pointer; letter-spacing: 1px; transition: all .2s; white-space: nowrap;
+}
+.sound-btn:hover { border-color: var(--blue); color: var(--blue); }
+.sound-btn.on { border-color: var(--green); color: var(--green); background: #0a1f12; }
+
+.status-banner {
+  padding: 8px var(--pad);
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid transparent; flex-shrink: 0;
+  transition: background .4s, border-color .4s; gap: 10px; flex-wrap: wrap;
+}
+.status-banner.GREEN  { background: #081a0f; border-color: #1aff6e22; }
+.status-banner.YELLOW { background: #1a1400; border-color: #ffcc0022; }
+.status-banner.RED    { background: #1a0808; border-color: #ff444422; }
+.status-banner.NONE   { background: #0c1018; border-color: var(--border); }
+.status-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.status-label { font-family: 'JetBrains Mono',monospace; font-size: clamp(14px,2.5vw,20px); font-weight: 700; letter-spacing: 4px; transition: color .4s; }
+.status-banner.GREEN  .status-label { color: var(--green); }
+.status-banner.YELLOW .status-label { color: var(--amber); }
+.status-banner.RED    .status-label { color: var(--red); }
+.status-banner.NONE   .status-label { color: #334455; }
+.status-sub { font-size: 11px; color: var(--muted); font-weight: 600; }
+.status-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-family: 'JetBrains Mono',monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+.pill.blue   { color: #80c4ff; border-color: #4da6ff44; background: #4da6ff11; }
+.pill.green  { color: #66ffaa; border-color: #1aff6e44; background: #1aff6e11; }
+.pill.cyan   { color: #66eeff; border-color: #00e5ff44; background: #00e5ff11; }
+.pill.purple { color: #ddaaff; border-color: #cc88ff44; background: #cc88ff11; }
+
+.offline-bar {
+  display: none; background: #2e1a00; border-bottom: 1px solid #ffcc0044;
+  padding: 5px var(--pad); font-size: 11px; color: var(--amber); font-weight: 700;
+  letter-spacing: 1px; flex-shrink: 0; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.offline-bar.show { display: flex; }
+.last-seen { font-family: 'JetBrains Mono',monospace; color: #a08040; }
+
+.tab-bar {
+  display: flex; padding: 0 var(--pad);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: var(--bg); overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.tab-bar::-webkit-scrollbar { height: 0; }
+.tab {
+  padding: 10px 16px; font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--muted2);
+  border-bottom: 2px solid transparent; cursor: pointer;
+  transition: color .2s, border-color .2s;
+  display: flex; align-items: center; gap: 6px; user-select: none;
+  white-space: nowrap; flex-shrink: 0;
+}
+.tab:hover  { color: var(--muted); }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.tab-content { flex: 1; overflow-y: auto; padding: var(--pad); -webkit-overflow-scrolling: touch; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: var(--pad); }
+.card-title {
+  font-size: 10px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase;
+  margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+}
+.cdot  { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.cnote { margin-left: auto; font-size: 10px; color: #334455; font-weight: 600; }
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px; margin-bottom: 14px;
+}
+.metric { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; position: relative; overflow: hidden; }
+.metric::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 10px 10px 0 0; }
+.metric.blue::before   { background: var(--blue); }
+.metric.green::before  { background: var(--green); }
+.metric.cyan::before   { background: var(--cyan); }
+.metric.purple::before { background: var(--purple); }
+.metric.amber::before  { background: var(--amber); }
+.metric-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
+.metric-val {
+  font-family: 'JetBrains Mono',monospace;
+  font-size: clamp(20px, 3vw, 32px);
+  font-weight: 700; line-height: 1;
+}
+.metric.blue   .metric-val { color: #80c4ff; }
+.metric.green  .metric-val { color: #66ffaa; }
+.metric.cyan   .metric-val { color: #66eeff; }
+.metric.purple .metric-val { color: #ddaaff; }
+.metric.amber  .metric-val { color: #ffe066; }
+.metric-unit { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+.metric-sub  { font-size: 10px; margin-top: 8px; font-weight: 700; }
+.metric-sub.up   { color: var(--green); }
+.metric-sub.down { color: var(--red); }
+.metric-sub.flat { color: #445566; }
+
+.charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.span2 { grid-column: span 2; }
+
+.imu-canvas-wrap { position: relative; width: 100%; }
+#imu-canvas { background: var(--bg3); border-radius: 8px; width: 100%; display: block; }
+.imu-readouts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.imu-val { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+.imu-val .lbl { font-size: 9px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.imu-val .num { font-family: 'JetBrains Mono',monospace; font-size: clamp(14px,2vw,20px); font-weight: 700; margin-top: 4px; }
+.imu-val.roll-c  .num { color: #ff6666; }
+.imu-val.pitch-c .num { color: #66ccff; }
+.imu-val.az-c    .num { color: #66ffaa; }
+.imu-val.heave-c .num { color: #ddaaff; }
+
+/* Track tab (Leaflet map) */
+.track-map-wrap { position: relative; width: 100%; }
+#track-map { width: 100%; aspect-ratio: 500 / 310; border-radius: 8px; background: #d8e2e8; z-index: 1; }
+.track-source-badge {
+  position: absolute; top: 10px; left: 10px; z-index: 1000;
+  font-family: 'JetBrains Mono',monospace; font-size: 10px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px; letter-spacing: .5px;
+  background: var(--bg2); color: var(--muted); border: 1px solid var(--border);
+}
+.track-source-badge.gps { background: #0a2e1a; color: var(--green); border-color: #1aff6e44; }
+.track-source-badge.dr  { background: #2e2200; color: var(--amber); border-color: #ffcc0044; }
+.track-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.track-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.track-reset-btn {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--muted); font-size: 11px; font-weight: 700; padding: 6px 12px;
+  cursor: pointer; letter-spacing: .5px; transition: all .2s;
+}
+.track-reset-btn:hover { border-color: var(--red); color: var(--red); }
+/* Leaflet dark-theme overrides */
+.leaflet-control-attribution {
+  background: rgba(10,15,20,0.8) !important; color: var(--muted) !important; font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--blue) !important; }
+.leaflet-control-zoom a {
+  background: var(--bg2) !important; color: var(--muted) !important; border-color: var(--border) !important;
+}
+.leaflet-control-layers {
+  background: var(--bg2) !important; color: var(--muted) !important; border: 1px solid var(--border) !important;
+}
+.leaflet-control-layers label { color: var(--muted); font-size: 11px; }
+.leaflet-control-scale-line {
+  background: rgba(10,15,20,0.7) !important; color: var(--muted) !important;
+  border-color: var(--muted2) !important; font-family: 'JetBrains Mono',monospace !important;
+}
+
+.log-wrap { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.log-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono',monospace; font-size: 12px; min-width: 600px; }
+.log-table th { color: var(--muted2); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 0 8px 8px 0; border-bottom: 2px solid var(--border); text-align: left; }
+.log-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid #0e1620; color: var(--muted); }
+.log-table tr:hover td { background: #0e1620; }
+.col-ts    { color: var(--muted2) !important; }
+.col-vp    { color: #80c4ff !important; font-weight: 700; }
+.col-sog   { color: #66ffaa !important; font-weight: 700; }
+.col-wind  { color: #66eeff !important; }
+.col-wave  { color: #ddaaff !important; }
+.col-st    { font-weight: 700; }
+.col-st.GREEN  { color: var(--green) !important; }
+.col-st.YELLOW { color: var(--amber) !important; }
+.col-st.RED    { color: var(--red)   !important; }
+
+.footer {
+  padding: 7px var(--pad); border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0; flex-wrap: wrap; gap: 6px;
+}
+.footer-brand { font-family: 'JetBrains Mono',monospace; font-size: 9px; color: #223344; letter-spacing: 1px; font-weight: 600; }
+.thresholds { display: flex; gap: 12px; flex-wrap: wrap; }
+.thresh-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); font-weight: 600; }
+.thresh-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 768px) {
+  :root { --pad: 12px; }
+  body { overflow: auto; height: auto; }
+  .title { display: none; }
+  .status-pills { display: none; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-2col { grid-template-columns: 1fr; }
+  .span2 { grid-column: span 1; }
+  .imu-readouts { grid-template-columns: repeat(2, 1fr); }
+  .track-stats { grid-template-columns: repeat(2, 1fr); }
+  .tab { padding: 12px 14px; }
+  .log-wrap { padding: 8px; }
+  .footer-brand { display: none; }
+}
+
+@media (max-width: 480px) {
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-val { font-size: 22px; }
+  .status-sub { display: none; }
+  .imu-readouts { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="logo">FYP // VESSEL</span>
+    <span class="title">Grey-Box Speed Prediction System</span>
+  </div>
+  <div class="topbar-right">
+    <button class="sound-btn" id="soundBtn" onclick="toggleSound()">🔇 SOUND OFF</button>
+    <span><span class="conn-dot off" id="cdot"></span><span class="conn-label" id="clbl">Disconnected</span></span>
+    <span class="ts-display" id="tsdisp">--:--:--</span>
+  </div>
+</div>
+
+<div class="status-banner NONE" id="sbanner">
+  <div class="status-left">
+    <div class="status-label" id="slabel">STANDBY</div>
+    <div class="status-sub"   id="ssub">Awaiting vessel data stream</div>
+  </div>
+  <div class="status-pills">
+    <span class="pill blue"   id="pill-vp">Vp —</span>
+    <span class="pill green"  id="pill-sog">SOG —</span>
+    <span class="pill cyan"   id="pill-wind">Wind —</span>
+    <span class="pill purple" id="pill-wave">Hs —</span>
+  </div>
+</div>
+
+<div class="offline-bar" id="offlineBar">
+  ⚠ DATA STREAM OFFLINE — last:
+  <span class="last-seen" id="lastSeenSpan">—</span>
+  <span style="margin-left:auto;font-size:10px;color:var(--muted)" id="reconnectMsg">Reconnecting...</span>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="overview"><span class="tab-dot" style="background:var(--blue)"></span>Overview</div>
+  <div class="tab" data-tab="charts"><span class="tab-dot" style="background:var(--green)"></span>Charts</div>
+  <div class="tab" data-tab="imu"><span class="tab-dot" style="background:#ff6666"></span>IMU</div>
+  <div class="tab" data-tab="track"><span class="tab-dot" style="background:#00e5ff"></span>Track</div>
+  <div class="tab" data-tab="log"><span class="tab-dot" style="background:var(--amber)"></span>Log</div>
+</div>
+
+<div class="tab-content">
+
+  <div class="tab-pane active" id="tab-overview">
+    <div class="metrics-grid">
+      <div class="metric blue">
+        <div class="metric-label" id="vp-metric-label">Predicted Vp</div>
+        <div class="metric-val" id="m-vp">—</div>
+        <div class="metric-unit">knots</div>
+        <div class="metric-sub flat" id="d-vp">— km/h</div>
+      </div>
+      <div class="metric green">
+        <div class="metric-label">SOG Actual</div>
+        <div class="metric-val" id="m-sog">—</div>
+        <div class="metric-unit">knots</div>
+        <div class="metric-sub flat" id="d-sog">speed over ground</div>
+      </div>
+      <div class="metric cyan">
+        <div class="metric-label">Wind Speed</div>
+        <div class="metric-val" id="m-wind">—</div>
+        <div class="metric-unit">knots</div>
+        <div class="metric-sub flat">corrected</div>
+      </div>
+      <div class="metric purple">
+        <div class="metric-label">Wave Hs</div>
+        <div class="metric-val" id="m-wave">—</div>
+        <div class="metric-unit">cm</div>
+        <div class="metric-sub flat">significant height</div>
+      </div>
+      <div class="metric amber">
+        <div class="metric-label">Vp (km/h)</div>
+        <div class="metric-val" id="m-kmh">—</div>
+        <div class="metric-unit">km/h</div>
+        <div class="metric-sub flat">predicted</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <span class="cdot" style="background:var(--blue)"></span>Predicted Vp (kn)
+        <span class="cdot" style="background:var(--green);margin-left:6px"></span>SOG Actual (kn)
+        <span class="cnote">last 60 ticks</span>
+      </div>
+      <canvas id="overviewChart" height="60"></canvas>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-charts">
+    <div class="charts-2col">
+      <div class="card span2">
+        <div class="card-title">
+          <span class="cdot" style="background:var(--blue)"></span>Vp predicted (kn)
+          <span class="cdot" style="background:var(--green);margin-left:6px"></span>SOG actual (kn)
+          <span class="cnote">solid=Vp · dashed=SOG</span>
+        </div>
+        <canvas id="speedChart" height="65"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--cyan)"></span>Wind speed (kn)</div>
+        <canvas id="windChart" height="90"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--purple)"></span>Wave Hs (cm)</div>
+        <canvas id="waveChart" height="90"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:var(--amber)"></span>Vp km/h</div>
+        <canvas id="kmhChart" height="90"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="cdot" style="background:#ff8866"></span>Vp vs SOG error (kn)</div>
+        <canvas id="errChart" height="90"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-imu">
+    <div class="card">
+      <div class="card-title">
+        <span class="cdot" style="background:#ff6666"></span>Vessel Orientation (Roll / Pitch / Heading)
+      </div>
+      <div class="imu-canvas-wrap">
+        <canvas id="imu-canvas"></canvas>
+      </div>
+      <div class="imu-readouts">
+        <div class="imu-val roll-c"><div class="lbl">Roll</div><div class="num" id="imu-roll">0.0°</div></div>
+        <div class="imu-val pitch-c"><div class="lbl">Pitch</div><div class="num" id="imu-pitch">0.0°</div></div>
+        <div class="imu-val az-c"><div class="lbl">Heading</div><div class="num" id="imu-yaw">0.0°</div></div>
+        <div class="imu-val heave-c"><div class="lbl">Heave m</div><div class="num" id="imu-heave-box">0.000</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-track">
+    <div class="card">
+      <div class="card-title">
+        <span class="cdot" style="background:#00e5ff"></span>Live Position Track
+        <span class="cnote">GPS when available, dead-reckoned otherwise</span>
+      </div>
+      <div class="track-map-wrap">
+        <div id="track-map"></div>
+        <div class="track-source-badge" id="track-source-badge">—</div>
+      </div>
+      <div class="track-stats">
+        <div class="imu-val" style="border-left:2px solid var(--cyan)"><div class="lbl">Distance</div><div class="num" id="track-dist">0 m</div></div>
+        <div class="imu-val" style="border-left:2px solid var(--green)"><div class="lbl">Speed</div><div class="num" id="track-speed">0.0 kn</div></div>
+        <div class="imu-val" style="border-left:2px solid #ff6666"><div class="lbl">Heading</div><div class="num" id="track-hdg">0.0°</div></div>
+        <div class="imu-val" style="border-left:2px solid var(--purple)"><div class="lbl">Points</div><div class="num" id="track-pts">0</div></div>
+      </div>
+      <div class="track-actions">
+        <button class="track-reset-btn" id="follow-btn" onclick="toggleFollow()">⦿ FOLLOW: ON</button>
+        <button class="track-reset-btn" onclick="resetTrack()">⟲ RESET TRACK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-log">
+    <div class="log-wrap">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Time</th><th>Vp kn</th><th>SOG kn</th>
+            <th>Wind kn</th><th>Wave cm</th><th>Vp km/h</th>
+            <th>Roll°</th><th>Pitch°</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <span class="footer-brand">IIUM MECHATRONICS FYP · JATI SIX GREY-BOX · 2025/26</span>
+  <div class="thresholds">
+    <div class="thresh-item"><div class="thresh-dot" style="background:var(--green)"></div>GREEN ≥ 20 kn</div>
+    <div class="thresh-item"><div class="thresh-dot" style="background:var(--amber)"></div>YELLOW ≥ 18 kn</div>
+    <div class="thresh-item"><div class="thresh-dot" style="background:var(--red)"></div>RED &lt; 18 kn</div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    setTimeout(() => {
+      allCharts().forEach(c => c.resize());
+      if (tab.dataset.tab === 'imu') {
+        if (window._imuResize) window._imuResize();
+        if (window._imuActivate) window._imuActivate();
+      } else if (window._imuDeactivate) {
+        window._imuDeactivate();
+      }
+      if (tab.dataset.tab === 'track' && window._trackResize) {
+        window._trackResize();
+      }
+    }, 60);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   FIELD NORMALIZATION
+   Bridge payload keys (vp_forecast_kn, vp_forecast_kmh, sog_now_kn,
+   wind_kn) → short dashboard-JS names (vp, vp_kmh, sog, wind).
+   IMU fields (roll, pitch, yaw, heave, az, wave_cm, status, ts) and
+   position fields (lat, lon, gps_fix, gps_sats) already share the
+   same name on both sides.
+   ══════════════════════════════════════════════════════════════ */
+function normalizeLatest(d){
+  if(!d) return {};
+  return {
+    ts: d.ts,
+    vp: d.vp_forecast_kn ?? d.vp,
+    vp_kmh: d.vp_forecast_kmh ?? d.vp_kmh,
+    sog: d.sog_now_kn ?? d.sog,
+    wind: d.wind_kn ?? d.wind,
+    wave_cm: d.wave_cm,
+    roll: d.roll, pitch: d.pitch, yaw: d.yaw, heave: d.heave, az: d.az,
+    lat: d.lat, lon: d.lon, gps_fix: d.gps_fix, gps_sats: d.gps_sats,
+    status: d.status,
+    forecast_horizon_s: d.forecast_horizon_s,
+    is_new_forecast: d.is_new_forecast
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ALERT SOUND SYSTEM
+   ══════════════════════════════════════════════════════════════ */
+let soundEnabled = false, audioCtx = null, lastStatus = 'NONE', soundInterval = null;
+let sirenActive = false, sirenNodes = null;
+
+function getACtx() { if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+function beep(freq,dur,type,vol){
+  try{
+    const c=getACtx(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);
+    o.type=type;
+    o.frequency.setValueAtTime(freq,c.currentTime);
+    g.gain.setValueAtTime(0,c.currentTime);
+    g.gain.linearRampToValueAtTime(vol,c.currentTime+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+    o.start(c.currentTime);o.stop(c.currentTime+dur);
+  }catch(e){}
+}
+
+function startSiren(){
+  if (sirenActive) return;
+  sirenActive = true;
+  try{
+    const c = getACtx();
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'sawtooth';
+    o.connect(g);
+    g.connect(c.destination);
+
+    g.gain.setValueAtTime(0, c.currentTime);
+    g.gain.linearRampToValueAtTime(0.55, c.currentTime + 0.05);
+
+    const LOW = 500, HIGH = 1100, SWEEP_SEC = 0.9;
+    o.frequency.setValueAtTime(LOW, c.currentTime);
+
+    o.start();
+
+    let goingUp = true;
+    function scheduleSweep(){
+      if (!sirenActive) return;
+      const now = c.currentTime;
+      const target = goingUp ? HIGH : LOW;
+      o.frequency.cancelScheduledValues(now);
+      o.frequency.setValueAtTime(o.frequency.value, now);
+      o.frequency.linearRampToValueAtTime(target, now + SWEEP_SEC);
+      goingUp = !goingUp;
+      sirenNodes.timeoutId = setTimeout(scheduleSweep, SWEEP_SEC * 1000);
+    }
+    sirenNodes = { osc: o, gain: g, timeoutId: null };
+    scheduleSweep();
+  }catch(e){ sirenActive = false; }
+}
+
+function stopSiren(){
+  if (!sirenActive || !sirenNodes) { sirenActive = false; return; }
+  sirenActive = false;
+  clearTimeout(sirenNodes.timeoutId);
+  try{
+    const c = getACtx();
+    sirenNodes.gain.gain.cancelScheduledValues(c.currentTime);
+    sirenNodes.gain.gain.setValueAtTime(sirenNodes.gain.gain.value, c.currentTime);
+    sirenNodes.gain.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.15);
+    sirenNodes.osc.stop(c.currentTime + 0.16);
+  }catch(e){}
+  sirenNodes = null;
+}
+
+function playAlert(s){
+  if(!soundEnabled){ stopSiren(); return; }
+  if(s==='GREEN'){
+    stopSiren();
+    beep(1046,.15,'sine',.3);
+  }
+  else if(s==='YELLOW'){
+    stopSiren();
+    beep(880,.14,'square',.45);
+    setTimeout(()=>beep(740,.14,'square',.45),180);
+    setTimeout(()=>beep(880,.14,'square',.45),380);
+  }
+  else if(s==='RED'){
+    startSiren();
+  }
+  else {
+    stopSiren();
+  }
+}
+
+function startRepeatAlarm(s){
+  if (s === 'RED' && soundEnabled) startSiren();
+  else stopSiren();
+}
+
+function toggleSound(){
+  soundEnabled=!soundEnabled;
+  const b=document.getElementById('soundBtn');
+  if(soundEnabled){
+    getACtx().resume();
+    b.textContent='🔊 SOUND ON';
+    b.classList.add('on');
+    beep(660,.1,'sine',.2);
+    if (lastStatus === 'RED') startSiren();
+  } else {
+    b.textContent='🔇 SOUND OFF';
+    b.classList.remove('on');
+    stopSiren();
+  }
+}
+
+/* ── Rolling time-window history (last 4 min, x = elapsed session time) ── */
+const WINDOW_S=240;          // visible window: 4 minutes
+const TICK_S=30;             // x tick every 30 s
+const HIST_KEYS=['vp','sog','wind','wave','kmh','err'];
+const hist={vp:[],sog:[],wind:[],wave:[],kmh:[],err:[]};   // each: [{x:seconds, y:value}]
+let histT0=null;             // ms epoch of first sample -> x = 0
+
+function fmtMMSS(sec){
+  sec=Math.max(0,Math.round(sec));
+  return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+}
+function mkChart(id,datasets){
+  const tickFont={size:10,family:"'JetBrains Mono',monospace"};
+  return new Chart(document.getElementById(id),{
+    type:'line',data:{datasets},
+    options:{animation:false,responsive:true,maintainAspectRatio:true,parsing:false,normalized:true,
+      scales:{
+        x:{type:'linear',min:0,max:WINDOW_S,
+          title:{display:true,text:'Time (mm:ss)',color:'#7090a0',font:tickFont},
+          ticks:{color:'#7090a0',font:tickFont,maxRotation:0,callback:v=>fmtMMSS(v)},
+          grid:{color:'#131d28'},border:{display:false},
+          afterBuildTicks(ax){                       // ticks on clean 30 s multiples
+            const t=[];
+            for(let v=Math.ceil(ax.min/TICK_S)*TICK_S; v<=ax.max+1e-6; v+=TICK_S) t.push({value:v});
+            ax.ticks=t;
+          }},
+        y:{ticks:{color:'#7090a0',font:tickFont,maxTicksLimit:5},grid:{color:'#131d28'},border:{display:false}}},
+      plugins:{legend:{display:false},decimation:{enabled:true,algorithm:'lttb',samples:400}},
+      elements:{line:{borderWidth:2},point:{radius:0}}}
+  });
+}
+const overviewChart=mkChart('overviewChart',[{data:[],borderColor:'#4da6ff',tension:.4,fill:false},{data:[],borderColor:'#1aff6e',tension:.4,fill:false,borderDash:[5,4]}]);
+const speedChart=mkChart('speedChart',[{data:[],borderColor:'#4da6ff',tension:.4,fill:false},{data:[],borderColor:'#1aff6e',tension:.4,fill:false,borderDash:[5,4]}]);
+const windChart=mkChart('windChart',[{data:[],borderColor:'#00e5ff',tension:.4,fill:true,backgroundColor:'rgba(0,229,255,.06)'}]);
+const waveChart=mkChart('waveChart',[{data:[],borderColor:'#cc88ff',tension:.4,fill:true,backgroundColor:'rgba(204,136,255,.06)'}]);
+const kmhChart=mkChart('kmhChart',[{data:[],borderColor:'#ffcc00',tension:.4,fill:true,backgroundColor:'rgba(255,204,0,.06)'}]);
+const errChart=mkChart('errChart',[{data:[],borderColor:'#ff8866',tension:.3,fill:true,backgroundColor:'rgba(255,136,102,.06)'}]);
+function allCharts(){return[overviewChart,speedChart,windChart,waveChart,kmhChart,errChart];}
+
+// tsMs: sample time in ms epoch. Live samples use Date.now(); backfilled rows pass their own ts.
+function pushHist(d,tsMs){
+  if(!Number.isFinite(tsMs)) tsMs=Date.now();
+  if(histT0===null) histT0=tsMs;
+  const x=(tsMs-histT0)/1000;
+  const vp=parseFloat(d.vp)||0,sog=parseFloat(d.sog)||0;
+  hist.vp.push({x,y:vp});hist.sog.push({x,y:sog});
+  hist.wind.push({x,y:parseFloat(d.wind)||0});hist.wave.push({x,y:parseFloat(d.wave_cm)||0});
+  hist.kmh.push({x,y:parseFloat(d.vp_kmh)||vp*1.852});
+  hist.err.push({x,y:parseFloat((vp-sog).toFixed(3))});
+  // drop points that left the window (keep one just outside so the line reaches the left edge)
+  const minX=x-WINDOW_S;
+  HIST_KEYS.forEach(k=>{const a=hist[k];let n=0;while(n<a.length-1&&a[n+1].x<minX)n++;if(n)a.splice(0,n);});
+}
+function refreshCharts(){
+  const last=hist.vp.length?hist.vp[hist.vp.length-1].x:0;
+  // fill 0..4:00 first, then slide so the right edge is always the newest sample
+  const xMax=Math.max(WINDOW_S,last), xMin=xMax-WINDOW_S;
+  const set=(c,keys)=>{
+    keys.forEach((k,i)=>{c.data.datasets[i].data=hist[k];});
+    c.options.scales.x.min=xMin;c.options.scales.x.max=xMax;
+    c.update('none');
+  };
+  set(overviewChart,['vp','sog']);
+  set(speedChart,['vp','sog']);
+  set(windChart,['wind']);
+  set(waveChart,['wave']);
+  set(kmhChart,['kmh']);
+  set(errChart,['err']);
+}
+
+function setStatus(s){
+  document.getElementById('sbanner').className='status-banner '+s;
+  const map={GREEN:{t:'SAFE OPERATING',sub:'Vessel speed within green threshold (≥ 20 kn)'},YELLOW:{t:'CAUTION',sub:'Approaching lower speed threshold (18–20 kn)'},RED:{t:'BELOW THRESHOLD',sub:'Vessel speed below minimum safe limit (< 18 kn)'},NONE:{t:'STANDBY',sub:'Awaiting vessel data stream'}};
+  const m=map[s]||map.NONE;
+  document.getElementById('slabel').textContent=m.t;
+  document.getElementById('ssub').textContent=m.sub;
+  if(s!==lastStatus){playAlert(s);startRepeatAlarm(s);lastStatus=s;}
+}
+
+let lastHorizonShown = null;
+function updateHorizonLabel(horizonS){
+  if (horizonS == null || horizonS === lastHorizonShown) return;
+  lastHorizonShown = horizonS;
+  const lbl = document.getElementById('vp-metric-label');
+  if (lbl) lbl.textContent = `Predicted Vp (+${horizonS}s)`;
+}
+
+function updateCards(d){
+  const vp=parseFloat(d.vp)||0,sog=parseFloat(d.sog)||0,wind=parseFloat(d.wind)||0,wave=parseFloat(d.wave_cm)||0,kmh=parseFloat(d.vp_kmh)||vp*1.852;
+  document.getElementById('m-vp').textContent=vp.toFixed(2);
+  document.getElementById('m-sog').textContent=sog.toFixed(2);
+  document.getElementById('m-wind').textContent=wind.toFixed(2);
+  document.getElementById('m-wave').textContent=wave.toFixed(1);
+  document.getElementById('m-kmh').textContent=kmh.toFixed(2);
+  document.getElementById('d-vp').textContent=kmh.toFixed(2)+' km/h';
+  const diff=(vp-sog).toFixed(2);
+  const el=document.getElementById('d-sog');
+  el.textContent=(diff>=0?'▲ +':'▼ ')+diff+' vs Vp';el.className='metric-sub '+(diff>=0?'up':'down');
+  document.getElementById('pill-vp').textContent='Vp '+vp.toFixed(2)+' kn';
+  document.getElementById('pill-sog').textContent='SOG '+sog.toFixed(2)+' kn';
+  document.getElementById('pill-wind').textContent='Wind '+wind.toFixed(2)+' kn';
+  document.getElementById('pill-wave').textContent='Hs '+wave.toFixed(1)+' cm';
+  document.getElementById('tsdisp').textContent=d.ts?new Date(d.ts).toLocaleTimeString():new Date().toLocaleTimeString();
+  if (d.forecast_horizon_s != null) updateHorizonLabel(d.forecast_horizon_s);
+}
+
+const logRows=[];const MAX_LOG=200;
+function addLogRow(d,prepend=true){
+  const vp=(parseFloat(d.vp)||0).toFixed(3),sog=(parseFloat(d.sog)||0).toFixed(3);
+  const wind=(parseFloat(d.wind)||0).toFixed(2),wave=(parseFloat(d.wave_cm)||0).toFixed(1);
+  const kmh=(parseFloat(d.vp_kmh)||parseFloat(d.vp)*1.852||0).toFixed(3);
+  const roll=(parseFloat(d.roll)||0).toFixed(1),pitch=(parseFloat(d.pitch)||0).toFixed(1);
+  const ts=d.ts?new Date(d.ts).toLocaleTimeString():new Date().toLocaleTimeString();
+  const st=d.status||'NONE';
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="col-ts">${ts}</td><td class="col-vp">${vp}</td><td class="col-sog">${sog}</td><td class="col-wind">${wind}</td><td class="col-wave">${wave}</td><td>${kmh}</td><td>${roll}</td><td>${pitch}</td><td class="col-st ${st}">${st}</td>`;
+  const tb=document.getElementById('log-tbody');
+  if(prepend&&tb.firstChild)tb.insertBefore(tr,tb.firstChild);else tb.appendChild(tr);
+  logRows.push(tr);
+  if(logRows.length>MAX_LOG){const old=logRows.shift();old.remove();}
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LIVE TRACK — real GPS on a map when the payload has lat/lon,
+   dead-reckoned from SOG+heading (anchored near IIUM Gombak)
+   otherwise. Both are rendered on the same Leaflet map so the
+   tab always shows something sensible.
+   ══════════════════════════════════════════════════════════════ */
+const DEFAULT_ANCHOR = { lat: 3.2470, lon: 101.7305 }; // IIUM Gombak campus — fallback anchor only
+
+const trackState = {
+  path: [],       // [{lat, lon, gps}]
+  totalDist: 0,
+  lastTs: null,
+  anchor: null,   // set from first real GPS fix this session, else DEFAULT_ANCHOR
+  drX: 0, drY: 0  // dead-reckoned east/north offset in metres from anchor
+};
+const MAX_TRACK_POINTS = 2000;
+let lastHeadingUsed = 0;
+
+let trackMap = null, trackPolyline = null, trackMarker = null, trackStartMarker = null;
+let followMode = true;
+
+function initTrackMap(){
+  trackMap = L.map('track-map', { zoomControl: true, attributionControl: true })
+    .setView([DEFAULT_ANCHOR.lat, DEFAULT_ANCHOR.lon], 17);
+
+  // Real basemaps (no API key needed). Street is default; switch to Satellite / add sea marks from the layer control.
+  const street = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxNativeZoom: 19, maxZoom: 21
+  });
+  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Maxar, Earthstar Geographics, and the GIS User Community',
+    maxNativeZoom: 19, maxZoom: 21
+  });
+  const seaMarks = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    attribution: 'Map data: &copy; <a href="https://www.openseamap.org">OpenSeaMap</a> contributors',
+    maxNativeZoom: 18, maxZoom: 21
+  });
+  street.addTo(trackMap);
+  L.control.layers({ 'Street': street, 'Satellite': satellite }, { 'Sea marks': seaMarks }, { position: 'topright', collapsed: true }).addTo(trackMap);
+
+  L.control.scale({ metric: true, imperial: false }).addTo(trackMap);
+  trackPolyline = L.polyline([], { color: '#e6194b', weight: 4, opacity: 0.9 }).addTo(trackMap);
+  trackMap.on('dragstart', () => { followMode = false; updateFollowBtn(); });
+  window._trackResize = () => { if (trackMap) trackMap.invalidateSize(); };
+}
+
+function headingIcon(hdg){
+  return L.divIcon({
+    className: 'track-heading-icon',
+    html: `<div style="width:22px;height:22px;transform:rotate(${hdg}deg);">
+             <svg width="22" height="22" viewBox="0 0 22 22"><path d="M11 1 L17 19 L11 15 L5 19 Z" fill="#0a5cff" stroke="#ffffff" stroke-width="1.5"/></svg>
+           </div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+  });
+}
+
+function metersToLatLon(anchor, dx, dy){
+  const dLat = dy / 111320;
+  const dLon = dx / (111320 * Math.cos(anchor.lat * Math.PI / 180));
+  return { lat: anchor.lat + dLat, lon: anchor.lon + dLon };
+}
+
+function haversineM(a, b){
+  const R = 6371000;
+  const p1 = a.lat * Math.PI / 180, p2 = b.lat * Math.PI / 180;
+  const dp = (b.lat - a.lat) * Math.PI / 180, dl = (b.lon - a.lon) * Math.PI / 180;
+  const s = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function updateTrack(d){
+  const speedKn = parseFloat(d.sog) || 0;
+  const headingDeg = parseFloat(d.yaw) || 0;
+  const tsMs = d.ts ? new Date(d.ts).getTime() : Date.now();
+  lastHeadingUsed = headingDeg;
+
+  const gpsFix = parseInt(d.gps_fix) || 0;
+  const hasGps = gpsFix > 0 && Number.isFinite(parseFloat(d.lat)) && Number.isFinite(parseFloat(d.lon));
+  let point;
+
+  if (hasGps){
+    point = { lat: parseFloat(d.lat), lon: parseFloat(d.lon), gps: true };
+    if (!trackState.anchor) trackState.anchor = { lat: point.lat, lon: point.lon };
+  } else {
+    if (!trackState.anchor) trackState.anchor = { ...DEFAULT_ANCHOR };
+    if (trackState.lastTs != null){
+      const dt = (tsMs - trackState.lastTs) / 1000;
+      if (dt > 0 && dt < 300){
+        const speedMps = speedKn * 0.514444;
+        const hRad = headingDeg * Math.PI / 180;
+        trackState.drX += speedMps * dt * Math.sin(hRad);
+        trackState.drY += speedMps * dt * Math.cos(hRad);
+      }
+    }
+    const ll = metersToLatLon(trackState.anchor, trackState.drX, trackState.drY);
+    point = { lat: ll.lat, lon: ll.lon, gps: false };
+  }
+  trackState.lastTs = tsMs;
+
+  const prev = trackState.path[trackState.path.length - 1];
+  if (prev) trackState.totalDist += haversineM(prev, point);
+  trackState.path.push(point);
+  if (trackState.path.length > MAX_TRACK_POINTS) trackState.path.shift();
+
+  const distEl = document.getElementById('track-dist');
+  if (distEl) distEl.textContent = trackState.totalDist >= 1000
+    ? (trackState.totalDist / 1000).toFixed(2) + ' km'
+    : Math.round(trackState.totalDist) + ' m';
+  const spEl = document.getElementById('track-speed');
+  if (spEl) spEl.textContent = speedKn.toFixed(1) + ' kn';
+  const hdEl = document.getElementById('track-hdg');
+  if (hdEl) hdEl.textContent = headingDeg.toFixed(1) + '°';
+  const ptEl = document.getElementById('track-pts');
+  if (ptEl) ptEl.textContent = trackState.path.length;
+  const badge = document.getElementById('track-source-badge');
+  if (badge){
+    badge.textContent = point.gps ? '● GPS FIX' : '◌ DEAD-RECKONED';
+    badge.className = 'track-source-badge ' + (point.gps ? 'gps' : 'dr');
+  }
+
+  if (!trackMap) return;
+  trackPolyline.setLatLngs(trackState.path.map(p => [p.lat, p.lon]));
+
+  const curLL = [point.lat, point.lon];
+  if (!trackMarker){
+    trackMarker = L.marker(curLL, { icon: headingIcon(headingDeg) }).addTo(trackMap);
+  } else {
+    trackMarker.setLatLng(curLL);
+    trackMarker.setIcon(headingIcon(headingDeg));
+  }
+  if (!trackStartMarker && trackState.path.length === 1){
+    trackStartMarker = L.circleMarker(curLL, { radius: 6, color: '#ffffff', weight: 2, fillColor: '#1a9c3f', fillOpacity: 1 }).addTo(trackMap);
+  }
+
+  if (followMode) trackMap.panTo(curLL, { animate: true, duration: 0.3 });
+}
+
+function toggleFollow(){
+  followMode = !followMode;
+  updateFollowBtn();
+  if (followMode && trackMarker) trackMap.panTo(trackMarker.getLatLng());
+}
+function updateFollowBtn(){
+  const b = document.getElementById('follow-btn');
+  if (b) b.textContent = followMode ? '⦿ FOLLOW: ON' : '○ FOLLOW: OFF';
+}
+
+function resetTrack(){
+  trackState.path = [];
+  trackState.totalDist = 0;
+  trackState.lastTs = null;
+  trackState.anchor = null;
+  trackState.drX = 0; trackState.drY = 0;
+  if (trackPolyline) trackPolyline.setLatLngs([]);
+  if (trackMarker){ trackMap.removeLayer(trackMarker); trackMarker = null; }
+  if (trackStartMarker){ trackMap.removeLayer(trackStartMarker); trackStartMarker = null; }
+  if (trackMap) trackMap.setView([DEFAULT_ANCHOR.lat, DEFAULT_ANCHOR.lon], 17);
+  const distEl = document.getElementById('track-dist'); if (distEl) distEl.textContent = '0 m';
+  const ptEl = document.getElementById('track-pts'); if (ptEl) ptEl.textContent = '0';
+  const badge = document.getElementById('track-source-badge');
+  if (badge){ badge.textContent = '—'; badge.className = 'track-source-badge'; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3D VESSEL SCENE — tapered hull, deck rail, waterline, lit cabin
+   windows, nameplates, speed-reactive wake. Tune feel via CFG.
+   ══════════════════════════════════════════════════════════════ */
+(function initVesselScene() {
+  const CFG = {
+    LERP: 0.35,        // response speed (higher = snappier)
+    ROLL_GAIN: 3.2,     // visual amplification of roll
+    PITCH_GAIN: 3.6,    // visual amplification of pitch
+    HEAVE_GAIN: 0.95,   // vertical bob amplitude
+    CAM_BOB: 0.18,      // camera follows heave slightly
+    WAKE_MAX_KN: 26     // speed at which wake maxes out
+  };
+
+  const canvas = document.getElementById('imu-canvas');
+  const wrap = canvas.parentElement;
+  const ASPECT = 500 / 280;
+  let W = 500, H = 280, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function computeSize() {
+    let w = wrap.clientWidth;
+    if (!w || w < 50) w = wrap.getBoundingClientRect().width;
+    if (!w || w < 50) w = document.querySelector('.tab-content').clientWidth || 500;
+    w = Math.max(Math.floor(w), 240);
+    const h = Math.round(w / ASPECT);
+    return { w, h };
+  }
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a1622);
+  scene.fog = new THREE.Fog(0x0a1622, 10, 34);
+
+  const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+  camera.position.set(3.4, 2.3, 5.9);
+  camera.lookAt(0, 0.3, 0);
+  const baseCamY = camera.position.y;
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+
+  let isImuVisible = false;
+  let rafId = null;
+
+  function applySize() {
+    const s = computeSize();
+    W = s.w; H = s.h;
+    renderer.setPixelRatio(DPR);
+    renderer.setSize(W, H, false);
+    camera.aspect = W / H;
+    camera.updateProjectionMatrix();
+    if (isImuVisible) renderer.render(scene, camera);
+  }
+  window._imuResize = applySize;
+  window.addEventListener('resize', applySize);
+  if (window.ResizeObserver) new ResizeObserver(() => applySize()).observe(wrap);
+
+  scene.add(new THREE.HemisphereLight(0x4488aa, 0x0a1018, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+  sun.position.set(5, 8, 4);
+  scene.add(sun);
+  const fillLight = new THREE.DirectionalLight(0x1aff6e, 0.35);
+  fillLight.position.set(-4, 2, -3);
+  scene.add(fillLight);
+
+  const ocean = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 60),
+    new THREE.MeshStandardMaterial({ color: 0x0f2a3a, roughness: 0.95, metalness: 0.05 })
+  );
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.position.y = -0.55;
+  scene.add(ocean);
+  const grid = new THREE.GridHelper(60, 30, 0x2a6f8f, 0x14384a);
+  grid.position.y = -0.53;
+  scene.add(grid);
+
+  const boat = new THREE.Group();
+
+  // ---- Hull: tapered profile (pointed bow, flat transom stern) ----
+  const hullPts = [
+    [2.3, 0.0], [1.9, 0.55], [1.1, 0.85], [0.2, 0.9], [-1.0, 0.88],
+    [-1.7, 0.75], [-1.95, 0.45], [-1.95, -0.45], [-1.7, -0.75],
+    [-1.0, -0.88], [0.2, -0.9], [1.1, -0.85], [1.9, -0.55]
+  ];
+  const hullShape = new THREE.Shape();
+  hullPts.forEach(([x, z], i) => { if (i === 0) hullShape.moveTo(x, z); else hullShape.lineTo(x, z); });
+  hullShape.closePath();
+
+  const hullHeight = 0.7;
+  const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
+    depth: hullHeight, bevelEnabled: true, bevelThickness: 0.04,
+    bevelSize: 0.04, bevelSegments: 2, curveSegments: 12
+  });
+  hullGeo.rotateX(-Math.PI / 2); // depth axis becomes "up"
+
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0x1a3a5c, roughness: 0.5, metalness: 0.4,
+    emissive: 0x081428, emissiveIntensity: 0.5
+  });
+  const hull = new THREE.Mesh(hullGeo, hullMat);
+  boat.add(hull);
+
+  const hullEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(hullGeo),
+    new THREE.LineBasicMaterial({ color: 0x4da6ff, transparent: true, opacity: 0.55 })
+  );
+  boat.add(hullEdges);
+
+  function outlineLoop(points, y, scale, color, opacity) {
+    const pts3 = points.map(([x, z]) => new THREE.Vector3(x * scale, y, -z * scale));
+    const geo = new THREE.BufferGeometry().setFromPoints(pts3);
+    return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+  }
+  boat.add(outlineLoop(hullPts, 0.25, 1.02, 0xffffff, 0.4));                                   // waterline
+  boat.add(outlineLoop(hullPts.map(([x, z]) => [x * 0.92, z * 0.92]), hullHeight + 0.35, 1.0, 0x9db8c8, 0.55)); // deck rail
+
+  // ---- Cabin, with lit windows on port/starboard ----
+  function makeWindowsCanvas() {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#e8e4d8'; ctx.fillRect(0, 0, 256, 128);
+    const winY = 40, winW = 44, winH = 34, gap = 14, startX = 18;
+    for (let i = 0; i < 4; i++) {
+      const x = startX + i * (winW + gap);
+      ctx.fillStyle = '#0a1520';
+      ctx.fillRect(x, winY, winW, winH);
+      ctx.strokeStyle = '#1e2d3d'; ctx.lineWidth = 3; ctx.strokeRect(x, winY, winW, winH);
+      ctx.fillStyle = 'rgba(255,204,0,0.65)';
+      ctx.fillRect(x + 4, winY + 4, winW - 8, winH - 8);
+    }
+    return c;
+  }
+  const windowsTex = new THREE.CanvasTexture(makeWindowsCanvas());
+  const cabinSideMat = new THREE.MeshStandardMaterial({ map: windowsTex, roughness: 0.5, metalness: 0.15 });
+  const cabinPlainMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 0.6, metalness: 0.1 });
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.7, 1.1),
+    [cabinPlainMat, cabinPlainMat, cabinPlainMat, cabinPlainMat, cabinSideMat, cabinSideMat]
+  );
+  cabin.position.set(-0.3, 1.05, 0);
+  boat.add(cabin);
+
+  const mast = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 1.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x9db8c8 })
+  );
+  mast.position.set(-0.3, 2.0, 0);
+  boat.add(mast);
+
+  const radar = new THREE.Mesh(
+    new THREE.SphereGeometry(0.075, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x666666, emissiveIntensity: 0.7 })
+  );
+  radar.position.set(-0.3, 2.68, 0);
+  boat.add(radar);
+
+  // ---- Nameplates ----
+  function makeNameplateCanvas() {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 80;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 256, 80);
+    ctx.fillStyle = '#0d2436'; ctx.fillRect(0, 20, 256, 40);
+    ctx.strokeStyle = '#4da6ff'; ctx.lineWidth = 2; ctx.strokeRect(2, 22, 252, 36);
+    ctx.fillStyle = '#66eeff'; ctx.font = 'bold 28px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('JATI 6', 128, 41);
+    return c;
+  }
+  const nameplateMat = new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(makeNameplateCanvas()), transparent: true, side: THREE.DoubleSide
+  });
+  const nameplateGeo = new THREE.PlaneGeometry(0.85, 0.27);
+  const plateS = new THREE.Mesh(nameplateGeo, nameplateMat); plateS.position.set(0.05, 0.35, 0.93);
+  const plateP = new THREE.Mesh(nameplateGeo, nameplateMat); plateP.position.set(0.05, 0.35, -0.93);
+  boat.add(plateS, plateP);
+
+  // ---- Wake (length/opacity react to speed) ----
+  const wakeGeo = new THREE.PlaneGeometry(1, 1);
+  wakeGeo.translate(-0.5, 0, 0);
+  const wake = new THREE.Mesh(
+    wakeGeo,
+    new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0, side: THREE.DoubleSide })
+  );
+  wake.rotation.x = -Math.PI / 2;
+  wake.position.set(-1.9, 0.05, 0);
+  boat.add(wake);
+
+  boat.position.y = 0.1;
+  scene.add(boat);
+
+  applySize();
+
+  let targetRoll = 0, targetPitch = 0, targetYaw = 0, targetHeave = 0, targetSpeed = 0;
+  let drawRoll = 0, drawPitch = 0, drawYaw = 0, drawHeave = 0, drawSpeed = 0;
+
+  window._imuUpdate = function(az, roll_deg, pitch_deg, yaw_deg, heave_m, speed_kn) {
+    targetRoll  = roll_deg  || 0;
+    targetPitch = pitch_deg || 0;
+    targetYaw   = yaw_deg   || 0;
+    targetHeave = heave_m   || 0;
+    targetSpeed = speed_kn  || 0;
+
+    document.getElementById('imu-roll').textContent  = targetRoll.toFixed(1) + '°';
+    document.getElementById('imu-pitch').textContent = targetPitch.toFixed(1) + '°';
+    document.getElementById('imu-yaw').textContent   = targetYaw.toFixed(1) + '°';
+    const hb = document.getElementById('imu-heave-box');
+    if (hb) hb.textContent = targetHeave.toFixed(3);
+  };
+
+  function animate() {
+    rafId = requestAnimationFrame(animate);
+
+    drawRoll  += (targetRoll  - drawRoll)  * CFG.LERP;
+    drawPitch += (targetPitch - drawPitch) * CFG.LERP;
+    drawYaw   += (targetYaw   - drawYaw)   * CFG.LERP;
+    drawHeave += (targetHeave - drawHeave) * CFG.LERP;
+    drawSpeed += (targetSpeed - drawSpeed) * CFG.LERP;
+
+    const t = performance.now() * 0.001;
+    const idleRoll  = Math.sin(t * 0.5) * 0.4;
+    const idlePitch = Math.sin(t * 0.33 + 1.1) * 0.3;
+
+    boat.rotation.x = THREE.MathUtils.degToRad((drawRoll + idleRoll) * CFG.ROLL_GAIN);
+    boat.rotation.z = THREE.MathUtils.degToRad(-(drawPitch + idlePitch) * CFG.PITCH_GAIN);
+    boat.rotation.y = THREE.MathUtils.degToRad(drawYaw);
+
+    const heaveClamped = Math.max(-1, Math.min(1, drawHeave));
+    boat.position.y = 0.1 + heaveClamped * CFG.HEAVE_GAIN;
+    camera.position.y = baseCamY + heaveClamped * CFG.CAM_BOB;
+    camera.lookAt(0, 0.3, 0);
+
+    const speedFactor = Math.max(0, Math.min(drawSpeed / CFG.WAKE_MAX_KN, 1));
+    wake.scale.set(1 + speedFactor * 4.2, 1, 0.6 + speedFactor * 1.3);
+    wake.material.opacity = 0.10 + speedFactor * 0.40;
+
+    renderer.render(scene, camera);
+  }
+
+  window._imuActivate = function() {
+    isImuVisible = true;
+    applySize();
+    if (!rafId) rafId = requestAnimationFrame(animate);
+  };
+  window._imuDeactivate = function() {
+    isImuVisible = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+    else if (isImuVisible && !rafId) { rafId = requestAnimationFrame(animate); }
+  });
+
+  renderer.render(scene, camera);
+})();
+
+initTrackMap();
+
+let lastReceivedTs=null,offlineTimer=null;
+let ws=null, pingInterval=null, reconnectAttempt=0;
+const RECONNECT_BASE_MS = 3000, RECONNECT_MAX_MS = 30000;
+
+function showOffline(){
+  document.getElementById('offlineBar').classList.add('show');
+  if(lastReceivedTs) document.getElementById('lastSeenSpan').textContent=new Date(lastReceivedTs).toLocaleTimeString();
+  document.getElementById('cdot').className='conn-dot stale';
+  document.getElementById('clbl').textContent='Offline';
+}
+function showOnline(){
+  document.getElementById('offlineBar').classList.remove('show');
+  document.getElementById('cdot').className='conn-dot on';
+  document.getElementById('clbl').textContent='Connected';
+  reconnectAttempt = 0;
+}
+function fetchMissedData(){
+  const url=lastReceivedTs?'/history?since='+encodeURIComponent(lastReceivedTs):'/history';
+  fetch(url).then(r=>r.json()).then(data=>{
+    if(data.rows&&data.rows.length>0){
+      data.rows.forEach(row=>{const n=normalizeLatest(row);pushHist(n,Date.parse(n.ts));addLogRow(n,false);updateTrack(n);});
+      refreshCharts();
+    }
+    if(data.latest&&Object.keys(data.latest).length>0){
+      const n=normalizeLatest(data.latest);
+      setStatus(n.status||'NONE');updateCards(n);lastReceivedTs=n.ts;
+    }
+  }).catch(()=>{});
+}
+
+let lastHeavyUpdate = 0;
+const HEAVY_UPDATE_INTERVAL = 150;
+
+function connect(){
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws=new WebSocket(`${proto}//${location.host}`);
+
+  ws.onopen=()=>{
+    showOnline();
+    clearTimeout(offlineTimer);
+    fetchMissedData();
+    clearInterval(pingInterval);
+    pingInterval=setInterval(()=>{
+      if(ws.readyState===WebSocket.OPEN){
+        try{ ws.send(JSON.stringify({type:'ping'})); }catch(e){}
+      }
+    }, 20000);
+  };
+
+  ws.onmessage=({data})=>{
+    const msg=JSON.parse(data);
+
+    if(msg.type==='status'){
+      if(msg.online) showOnline();
+      else showOffline();
+      return;
+    }
+    if(msg.type==='pong') return;
+
+    showOnline();
+    const latest = normalizeLatest(msg.latest);
+    lastReceivedTs=latest.ts||new Date().toISOString();
+    clearTimeout(offlineTimer);
+    offlineTimer=setTimeout(showOffline,10000);
+
+    if(window._imuUpdate){
+      window._imuUpdate(parseFloat(latest.az)||0, parseFloat(latest.roll)||0,
+                         parseFloat(latest.pitch)||0, parseFloat(latest.yaw)||0,
+                         parseFloat(latest.heave)||0, parseFloat(latest.sog)||0);
+    }
+
+    const now = performance.now();
+    if(now - lastHeavyUpdate >= HEAVY_UPDATE_INTERVAL){
+      lastHeavyUpdate = now;
+      if(msg.type==='init'&&msg.recentLog) msg.recentLog.forEach(r=>{const n=normalizeLatest(r);addLogRow(n,false);updateTrack(n);});
+      setStatus(latest.status||'NONE');
+      updateCards(latest);
+      pushHist(latest);
+      refreshCharts();
+      addLogRow(latest);
+      updateTrack(latest);
+    }
+  };
+
+  ws.onclose=()=>{
+    clearInterval(pingInterval);
+    document.getElementById('cdot').className='conn-dot off';
+    document.getElementById('clbl').textContent='Reconnecting...';
+    showOffline();
+    reconnectAttempt++;
+    const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt - 1), RECONNECT_MAX_MS);
+    document.getElementById('reconnectMsg').textContent =
+      `Reconnecting in ${Math.round(delay/1000)}s (attempt ${reconnectAttempt})...`;
+    setTimeout(connect, delay);
+  };
+  ws.onerror=()=>ws.close();
+}
+connect();
+</script></body>
+</html>
