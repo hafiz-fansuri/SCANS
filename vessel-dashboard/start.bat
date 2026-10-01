@@ -2,8 +2,16 @@
 title Vessel Dashboard Launcher
 
 REM ── If ngrok.exe isn't on your PATH, set the full path here ──
-REM Example: set NGROK_PATH=C:\ngrok\ngrok.exe
-set NGROK_PATH=C:\Users\fansuri\Documents\pro\fyp\vessel-dashboard\ngrok\ngrok.exe
+REM Default: look in the ngrok/ subfolder next to this script.
+REM Example:  set NGROK_PATH=C:\ngrok\ngrok.exe
+set "NGROK_PATH=%~dp0ngrok\ngrok.exe"
+if not exist "%NGROK_PATH%" (
+  echo   [WARNING] ngrok.exe not found at "%NGROK_PATH%"
+  echo   Download from https://ngrok.com/download and place it there.
+  echo   The ngrok tunnel will be skipped. The dashboard still works locally.
+  pause
+  exit /b 1
+)
 
 echo ============================================
 echo   Starting Node dashboard server ...

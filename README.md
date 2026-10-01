@@ -348,16 +348,40 @@ The bridge will:
 2. Calibrate the IMU baseline (8 s) and wind sensor (up to 40 s, needs calm conditions)
 3. Enter the main loop: reads NMEA, runs inference at the configured cadence, pushes to dashboard
 
-### 5. (Optional) Expose dashboard publicly
+### 5. (Optional) Expose dashboard publicly (ngrok)
 
-Run ngrok to share the dashboard URL:
+ngrok creates a public HTTPS tunnel to your local dashboard so it can be
+viewed from any device (phone, tablet, another computer).
+
+#### Installing ngrok
+
+1. **Download:** go to https://ngrok.com/download — download the Windows zip.
+2. **Unzip** and place `ngrok.exe` somewhere permanent, e.g. `vessel-dashboard/ngrok/`.
+3. **Sign up** for a free ngrok account at https://ngrok.com/signup.
+4. **Authenticate** your local install (one-time):
+   ```cmd
+   ngrok config add-authtoken <your-auth-token-from-ngrok.com>
+   ```
+5. **Update `start.bat`** — change the `NGROK_PATH` line to point at your `ngrok.exe`:
+   ```bat
+   set NGROK_PATH=C:\path\to\your\ngrok.exe
+   ```
+
+#### Running
 
 ```bash
-# Edit start.bat to point NGROK_PATH to your ngrok.exe
-# Or run manually:
+# Manual tunnel (alternative to start.bat)
+cd vessel-dashboard
 ngrok http 8080
-# Then set JATI6_DASHBOARD_URL to the ngrok https URL + /ingest
+# Copy the https:// URL ngrok prints, then:
+export JATI6_DASHBOARD_URL="https://<your-ngrok-url>.ngrok-free.app/ingest"
+python main.py
 ```
+
+#### Using ngrok with start.bat
+
+Just run `start.bat` from the `vessel-dashboard/` folder. It launches three
+windows in parallel: dashboard server, ngrok tunnel, and the Python bridge.
 
 ### 6. Post-cruise analysis
 
