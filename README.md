@@ -142,90 +142,320 @@ SCANS/
 
 ---
 
+## Setup Your Development Environment
+
+> These steps assume you are starting from scratch on a fresh computer. No prior experience needed — follow them in order.
+
+### 1. Install Arduino IDE (required for flashing the ESP32)
+
+1. Go to https://www.arduino.cc/en/software
+2. Download the **Windows** or **macOS** installer (64-bit).
+3. Run the installer **as Administrator** and accept all defaults.
+4. Launch Arduino IDE after installation completes.
+
+#### Add the ESP32 board package:
+
+1. In Arduino IDE: **File → Preferences**
+2. In the field *"Additional Boards Manager URLs"* paste:
+   ```
+   https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+   ```
+3. Click **OK**.
+4. Go to **Tools → Board → Boards Manager…**
+5. Search for `esp32` and install **esp32 by Espressif Systems**.
+6. Select your board: **Tools → Board → ESP32 Dev Module**
+7. Select the correct **Port** (Tools → Port → your ESP32, e.g. `COM3` on Windows or `/dev/ttyUSB0` on Linux/macOS).
+
+#### Install required libraries (via Library Manager):
+
+1. **Tools → Manage Libraries…** (wait for the index to load)
+2. Search and install each of these (install the latest version of each):
+
+   | Search term | Library name | Author |
+   |-------------|-------------|--------|
+   | `wifi` | WiFi (built-in, no install needed) | |
+   | `WiFiManager` | WiFiManager | tzapu |
+   | `PubSubClient` | PubSubClient | Nick O'Leary |
+   | `LittleFS_esp32` | LittleFS_esp32 | lorol |
+   | `SparkFun BNO08x` | SparkFun BNO08x Arduino Library | SparkFun |
+
+### 2. Install VS Code (optional, for code editing)
+
+> Arduino IDE is required for flashing. VS Code is a nicer editor for the Python/Node.js parts and is strongly recommended.
+
+1. Go to https://code.visualstudio.com/
+2. Download and install the Windows/macOS version.
+3. (Recommended) Install these VS Code extensions:
+   - **Python** (by Microsoft)
+   - **PlatformIO IDE** (for ESP32 development, if you prefer PIO over Arduino IDE)
+   - **GitLens** (for git integration)
+   - **Prettier** (for automatic frontend formatting)
+
+### 3. Install Python (3.10 or newer)
+
+1. Go to https://www.python.org/downloads/
+2. Download Python 3.12 (or latest stable).
+3. **Important:** During installation, check the box *"Add Python to PATH"*.
+4. After install, verify:
+   ```cmd
+   python --version
+   pip --version
+   ```
+
+### 4. Install Node.js (18 or newer)
+
+1. Go to https://nodejs.org/
+2. Download the **LTS** version.
+3. Run the installer with default settings.
+4. Verify:
+   ```cmd
+   node --version
+   npm --version
+   ```
+
+### 5. Create a Python virtual environment (recommended)
+
+A virtual environment keeps all Python dependencies isolated in one folder so they don't conflict with other projects on your computer.
+
+**Windows (Command Prompt / PowerShell):**
+```cmd
+cd SCANS\vessel-dashboard
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r ..\requirements.txt
+```
+
+**Windows (Git Bash) / macOS / Linux:**
+```bash
+cd SCANS/vessel-dashboard
+python3 -m venv .venv
+source .venv/bin/activate     # Windows Git Bash: .venv/Scripts/activate
+pip install -r ../requirements.txt
+```
+
+You'll know it's working when you see `(.venv)` at the start of your prompt. When you come back to work later, just run `source .venv/bin/activate` again before working.
+
+### 6. Install the dashboard npm dependencies
+
+```bash
+cd SCANS/vessel-dashboard
+npm install
+```
+
+---
+
 ## Getting Started from GitHub
 
 This repository is publicly hosted at: **https://github.com/hafiz-fansuri/SCANS**
 
-### 1. Clone the repo
+### Step 1 — Clone the repository
+
+Open a terminal (Command Prompt, PowerShell, or Git Bash) and run:
 
 ```bash
-# SSH (requires an SSH key on your GitHub account)
-git clone git@github.com:hafiz-fansuri/SCANS.git
-
-# or HTTPS
 git clone https://github.com/hafiz-fansuri/SCANS.git
-
 cd SCANS
 ```
 
-### 2. Set up the Python inference bridge
+### Step 2 — Set up the Python virtual environment and install dependencies
 
 ```bash
-cd vessel-dashboard
+cd SCANS/vessel-dashboard
+
+# Create and activate a virtual environment:
+python -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+
+# Install all Python dependencies:
 pip install -r ../requirements.txt
-
-# Point the bridge at the committed model checkpoints:
-export JATI6_MODEL_DIR="$PWD/../Training/checkpoints_fyp(vessel_forecast)"
-
-# MQTT broker credentials (see "Configuration Reference" below for defaults)
-export JATI6_MQTT_USER="your_broker_username"
-export JATI6_MQTT_PASS="your_broker_password"
-
-# Optional — if you're running the dashboard on a different machine:
-export JATI6_DASHBOARD_URL="http://<dashboard-host>:8080/ingest"
 ```
 
-### 3. Set up the Node.js dashboard server
+> If `python` doesn't work, try `python3` instead.
+
+### Step 3 — Configure environment variables
+
+The Python inference bridge reads its settings from environment variables. Create a `.env` file in the `vessel-dashboard/` folder:
 
 ```bash
-cd vessel-dashboard
-npm install          # recreates node_modules/ (excluded from git)
-npm start            # or: node server.js  →  http://localhost:8080
+# Path to the model checkpoint directory (relative to this repo):
+JATI6_MODEL_DIR=../Training/checkpoints_fyp(vessel_forecast)
+
+# Your MQTT broker credentials:
+# (Sign up for free at https://www.hivemq.com/cloud/ if you don't have one)
+JATI6_MQTT_USER=your_broker_username
+JATI6_MQTT_PASS=your_broker_password
+
+# Optional — only set if the dashboard runs on a different machine:
+JATI6_DASHBOARD_URL=http://localhost:8080/ingest
 ```
 
-### 4. Run the inference bridge
+> Both the ESP32 firmware and the Python bridge ship with a default MQTT credential (`ESP` / `12082003`). The bridge logs a warning on startup if you haven't overridden this. Create separate credentials for each before deploying.
+
+### Step 4 — Start the Node.js dashboard server
 
 ```bash
-cd vessel-dashboard
+cd SCANS/vessel-dashboard
+npm start
+# Dashboard will be available at http://localhost:8080
+```
+
+Leave this running. Open a browser and go to http://localhost:8080 to see the dashboard.
+
+### Step 5 — Start the Python inference bridge
+
+Open a **new** terminal (don't close the dashboard server from Step 4):
+
+```bash
+cd SCANS/vessel-dashboard
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 python main.py
 ```
 
-The bridge connects to MQTT, calibrates the IMU + wind sensors (~8 s + up to 40 s), then enters the main loop: reads telemetry, runs the hybrid physics+PINN+XGBoost inference, and pushes live data to the dashboard.
+The bridge will:
+1. Connect to MQTT and wait for the ESP32 to come online
+2. Calibrate the IMU baseline (8 seconds) and wind sensor (up to 40 seconds, needs calm conditions)
+3. Enter the main loop — reads telemetry, runs the hybrid physics+PINN+XGBoost inference, and pushes live data to the dashboard
 
-### 5. Run the training notebook (optional)
+### Step 6 — Flash the ESP32 firmware (hardware step)
 
-To retrain or inspect the model:
+1. Connect your ESP32 to the computer via USB.
+2. In Arduino IDE:
+   - **File → Open** → navigate to `SCANS/ESP CODE/SCANS.ino`
+   - Edit `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS` to match your broker
+   - **Sketch → Verify/Compile** (no errors should appear)
+   - **Sketch → Upload** (or click the right-arrow button)
+3. Open the **Serial Monitor** (Tools → Serial Monitor, baud rate 115200) to watch boot messages.
+4. On first boot: hold the **BOOT/IO0** button briefly to enter WiFiManager. Select your WiFi network and enter the password when the captive portal appears on your phone/laptop.
+
+> The firmware ships with `MOCK_AIRMAR = true` by default. This generates simulated wind/SOG/GPS data so you can test the full pipeline without real NMEA hardware. Set it to `false` in `SCANS.ino` when you have a real Airmar connected.
+
+### Step 7 — Run post-cruise analysis (after a voyage)
+
+After collecting data, run the analysis script to merge the live CSV with ground-truth data:
+
+```bash
+cd SCANS/vessel-dashboard
+source .venv/bin/activate
+python analysis.py
+```
+
+Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV and ground-truth XLSX files.
+
+### Step 8 — Retrain the model (optional)
 
 ```bash
 pip install jupyter
 jupyter notebook
-# then open Training/Training.ipynb
+# Open Training/Training.ipynb in the notebook interface
 ```
 
-### 6. Run post-cruise analysis (optional)
+### Step 9 — Push changes back to GitHub
 
 ```bash
-cd vessel-dashboard
-python analysis.py
-# Edit the CONFIG block at the top to point at your CSV and Jati 6 ground-truth XLSX.
-```
-
-### 7. Make changes and push back to your own device
-
-```bash
-# After editing files locally, commit and push to the repo:
+cd SCANS
 git add -A
 git commit -m "your descriptive message"
 git push origin main
 ```
 
-If you want to contribute back to this repo, fork it first, then push to your fork:
+---
 
+## Replicate the Full Project (Beginner Guide)
+
+Here is the complete sequence from zero to a running system, assuming you have no software installed yet.
+
+### Overview
+
+You will: (1) install software, (2) clone the repo, (3) flash the ESP32, (4) connect to WiFi, (5) set up MQTT, (6) run the dashboard + inference bridge, (7) verify everything works.
+
+### Step-by-step
+
+**A. Install all software** — Follow the [Setup Your Development Environment](#setup-your-development-environment) section above:
+1. Arduino IDE + ESP32 board + libraries
+2. VS Code (optional)
+3. Python 3.10+
+4. Node.js 18+
+
+**B. Clone the repo**
 ```bash
-git remote add myfork git@github.com:<your-username>/SCANS.git
-git push myfork main
-# Then open a Pull Request on GitHub.
+git clone https://github.com/hafiz-fansuri/SCANS.git
+cd SCANS
 ```
+
+**C. Set up Python venv + install dependencies**
+```bash
+cd SCANS/vessel-dashboard
+python -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r ../requirements.txt
+```
+
+**D. Set up the Node.js dashboard**
+```bash
+cd SCANS/vessel-dashboard
+npm install
+npm start
+# Leave this running — the dashboard is now at http://localhost:8080
+```
+
+**E. Create an MQTT broker account (free)**
+1. Go to https://www.hivemq.com/cloud/
+2. Sign up for a free account
+3. In the HiveMQ Cloud Console, create a new cluster and note the **cluster host URL** and **port (8883)**
+4. Create a new MQTT credential (username + password) — use something unique, not the default `ESP`/`12082003`
+
+**F. Flash the ESP32 firmware**
+1. Open `ESP CODE/SCANS.ino` in Arduino IDE
+2. Change these values in the code:
+   ```cpp
+   const char* MQTT_HOST = "your-cluster-host.hivemq.cloud";
+   const int   MQTT_PORT = 8883;
+   const char* MQTT_USER = "your_username";
+   const char* MQTT_PASS = "your_password";
+   ```
+3. Upload the sketch to your ESP32
+4. Open Serial Monitor (115200 baud)
+5. On first boot, hold the **BOOT** button to enter WiFiManager
+6. Connect to the WiFi network named `Jati9-Setup` with password `123456789`
+7. In the captive portal, select your vessel's WiFi network and enter its password
+
+**G. Configure the Python bridge**
+Create a `.env` file in `vessel-dashboard/`:
+```bash
+JATI6_MODEL_DIR=../Training/checkpoints_fyp(vessel_forecast)
+JATI6_MQTT_USER=your_username
+JATI6_MQTT_PASS=your_password
+```
+
+> If your ESP32 firmware's `MQTT_HOST` doesn't match the default in `main.py`, also set:
+> ```bash
+> JATI6_MQTT_HOST=your-cluster-host.hivemq.cloud
+> ```
+
+**H. Start the inference bridge**
+```bash
+cd vessel-dashboard
+source .venv/bin/activate
+python main.py
+```
+
+Watch the console — you should see:
+```
+MQTT connected to broker
+IMU baseline=...
+Wind calib: ...
+─── All models loaded ────────────────────────────────────
+Entering main loop — Ctrl-C to stop
+```
+
+If you see MQTT data lines appearing and the dashboard updating, everything is working.
+
+**I. Verify via the dashboard**
+Open http://localhost:8080 in a browser. You should see:
+- Live SOG, wind speed, and wave height values
+- Vp forecast speed (kn)
+- Alert status indicator (RED / YELLOW / GREEN)
+- A live-updating chart
 
 ---
 
@@ -279,122 +509,8 @@ git push myfork main
 - **Physics model:** 2nd-order polynomial in wind and wave, linear in lag-1 SOG (7 coefficients)
 - **PINN:** 3 residual blocks (LayerNorm + SiLU), predicts speed residual
 - **XGBoost:** takes [scaled features + physics output + PINN output] → final speed (kn)
-- **Forecast horizon:** configured in `meta.pkl` (`forecast_horizon_s`)
-- **Resample window:** configured in `meta.pkl` (`resample_seconds`)
-
----
-
-## How to Replicate
-
-### Prerequisites
-
-- ESP32 development board with BNO08x IMU and Airmar NMEA output
-- Arduino IDE (or PlatformIO) with ESP32 board package
-- Python 3.10+
-- Node.js 18+
-
-### 1. Flash the ESP32 firmware
-
-```bash
-# In Arduino IDE:
-#   Sketch → Include Library → Manage Libraries
-#   Install: WiFiManager, PubSubClient, LittleFS_esp32, SparkFun BNO08x
-#
-#   Tools → Board → ESP32 Dev Module
-#   Sketch → Upload
-```
-
-Edit `SCANS.ino` and set:
-- `MQTT_HOST` / `MQTT_PORT` — your MQTT broker (or use the provided HiveMQ cluster)
-- `MQTT_USER` / `MQTT_PASS` — create a dedicated credential (do NOT use the ESP32 default in production)
-- `WIFI_AP_NAME` / `WIFI_AP_PASS` — WiFiManager AP name for initial setup
-
-Connect GPIO0 to GND briefly during boot for WiFiManager captive-portal setup.
-
-### 2. Set up the Python inference bridge
-
-```bash
-cd vessel-dashboard
-pip install -r ../requirements.txt
-
-# Create a .env or export env vars:
-export JATI6_MQTT_USER="bridge_client"
-export JATI6_MQTT_PASS="your-broker-password"
-export JATI6_MODEL_DIR="/path/to/checkpoints_fyp(vessel_forecast)"
-# optional — for remote dashboard:
-export JATI6_DASHBOARD_URL="https://your-tunnel.trycloudflare.com/ingest"
-```
-
-> `main.py` defaults `JATI6_MODEL_DIR` to `C:\Users\fansuri\Documents\pro\fyp\checkpoints_fyp(vessel_forecast)`.
-> Update that path or override with the env var above.
-
-### 3. Start the dashboard server
-
-```bash
-cd vessel-dashboard
-npm install
-npm start    # or: node server.js  (listens on http://localhost:8080)
-```
-
-### 4. Start the inference bridge
-
-```bash
-cd vessel-dashboard
-python main.py
-```
-
-The bridge will:
-1. Connect to MQTT and wait for the ESP32 to come online
-2. Calibrate the IMU baseline (8 s) and wind sensor (up to 40 s, needs calm conditions)
-3. Enter the main loop: reads NMEA, runs inference at the configured cadence, pushes to dashboard
-
-### 5. (Optional) Expose dashboard publicly (ngrok)
-
-ngrok creates a public HTTPS tunnel to your local dashboard so it can be
-viewed from any device (phone, tablet, another computer).
-
-#### Installing ngrok
-
-1. **Download:** go to https://ngrok.com/download — download the Windows zip.
-2. **Unzip** and place `ngrok.exe` somewhere permanent, e.g. `vessel-dashboard/ngrok/`.
-3. **Sign up** for a free ngrok account at https://ngrok.com/signup.
-4. **Authenticate** your local install (one-time):
-   ```cmd
-   ngrok config add-authtoken <your-auth-token-from-ngrok.com>
-   ```
-5. **Update `start.bat`** — change the `NGROK_PATH` line to point at your `ngrok.exe`:
-   ```bat
-   set NGROK_PATH=C:\path\to\your\ngrok.exe
-   ```
-
-#### Running
-
-```bash
-# Manual tunnel (alternative to start.bat)
-cd vessel-dashboard
-ngrok http 8080
-# Copy the https:// URL ngrok prints, then:
-export JATI6_DASHBOARD_URL="https://<your-ngrok-url>.ngrok-free.app/ingest"
-python main.py
-```
-
-#### Using ngrok with start.bat
-
-Just run `start.bat` from the `vessel-dashboard/` folder. It launches three
-windows in parallel: dashboard server, ngrok tunnel, and the Python bridge.
-
-### 6. Post-cruise analysis
-
-```bash
-cd vessel-dashboard
-python analysis.py
-```
-
-Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV and Jati 6 ground-truth XLSX, then run.
-
-### Keyboard shortcut during bridge run
-
-- Press **`r`** (console focused, Windows only) to trigger a soft-reset of sensors (IMU baseline + wave estimator recalibrate). The soft-reset hotkey auto-disables on macOS/Linux.
+Forecast horizon: configured in `meta.pkl` (`forecast_horizon_s`)
+Resample window: configured in `meta.pkl` (`resample_seconds`)
 
 ---
 
@@ -403,7 +519,7 @@ Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV an
 | Topic | Direction | Purpose |
 |-------|-----------|---------|
 | `jati6/raw` | ESP32 → Python | Raw sensor lines (NMEA + IMU + wave) |
-| `jati6/status` | ESP32 → Python | Online/offline LWT |
+| `jati6/status` | ESP32 → Python | Online/offline Last-Will |
 | `jati6/results` | Python → ESP32 | Inference results (SD-card mirror) |
 | `jati6/results_header` | Python → ESP32 | CSV header (retained) for SD mirror |
 | `jati6/command` | Python → ESP32 | `SOFT_RESET` / `FULL_RESET` |
@@ -431,14 +547,20 @@ Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV an
 
 ## Notes & Caveats
 
-- **Shared credentials:** Both the ESP32 (`SCANS.ino`) and the Python bridge default to the same MQTT credential (`ESP` / `12082003`). The code warns about this on startup — create separate broker credentials before deploying publicly.
-- **Mock mode:** `SCANS.ino` has `MOCK_AIRMAR = true` by default for simulation/testing without real NMEA hardware.
+- **Shared credentials:** Neither the ESP32 (`SCANS.ino`) nor the Python bridge override the MQTT credential (`ESP` / `12082003`) at startup — create separate broker credentials before deploying publicly.
+- **Mock mode:** `SCANS.ino` has `MOCK_AIRMAR = true` by default for simulation/testing without real NMEA hardware. Set it to `false` when you have a real Airmar NMEA device connected.
 - **`start.bat`** has a hardcoded ngrok path — edit `NGROK_PATH` if your ngrok is elsewhere.
 - The **session plot** (`dashboard_plot.png`) is saved on every shutdown (Ctrl-C) and plots every 10 Hz loop tick.
-- **`Training/Training.ipynb`** contains the full model training pipeline (v7.5) — Excel/CSV ingest, physics-informed residual modeling, PINN + XGBoost training, and checkpoint export. The model artifacts in `Training/checkpoints_fyp(vessel_forecast)/` are the committed outputs of this notebook.
-- **`deploy_to_github.py`** is a legacy PAT-based deploy script. Preferred method: use the `gh` CLI:
+- **`Training/Training.ipynb`** contains the full model training pipeline — Excel/CSV ingest, physics-informed residual modeling, PINN + XGBoost training, and checkpoint export. The model artifacts in `Training/checkpoints_fyp(vessel_forecast)/` are the committed outputs of this notebook.
+- **`deploy_to_github.py`** is a legacy PAT-based deploy helper. Preferred method: use the `gh` CLI:
   ```bash
   gh repo create hafiz-fansuri/SCANS --public --source=. --push
+  ```
+  Or the HTTPS remote manually:
+  ```bash
+  git remote add origin https://github.com/hafiz-fansuri/SCANS.git
+  git branch -M main
+  git push -u origin main
   ```
 
 ---
