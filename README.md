@@ -324,7 +324,7 @@ Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV an
 - **Mock mode:** `SCANS.ino` has `MOCK_AIRMAR = true` by default for simulation/testing without real NMEA hardware.
 - **`start.bat`** has a hardcoded ngrok path — edit `NGROK_PATH` if your ngrok is elsewhere.
 - The **session plot** (`dashboard_plot.png`) is saved on every shutdown (Ctrl-C) and plots every 10 Hz loop tick.
-- **`Training/Training.ipynb` is empty (0 bytes)** — it is a placeholder from early development and is non-essential. Model training was done in a separate environment; the committed checkpoints in `Training/checkpoints_fyp(vessel_forecast)/` are the final artifacts.
+- **`Training/Training.ipynb`** contains the full model training pipeline (v7.5) — Excel/CSV ingest, physics-informed residual modeling, PINN + XGBoost training, and checkpoint export. The model artifacts in `Training/checkpoints_fyp(vessel_forecast)/` are the committed outputs of this notebook.
 - **`deploy_to_github.py`** is a legacy PAT-based deploy script. Preferred method: use the `gh` CLI:
   ```bash
   gh repo create hafiz-fansuri/SCANS --public --source=. --push
