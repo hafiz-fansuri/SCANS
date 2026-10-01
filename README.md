@@ -142,6 +142,93 @@ SCANS/
 
 ---
 
+## Getting Started from GitHub
+
+This repository is publicly hosted at: **https://github.com/hafiz-fansuri/SCANS**
+
+### 1. Clone the repo
+
+```bash
+# SSH (requires an SSH key on your GitHub account)
+git clone git@github.com:hafiz-fansuri/SCANS.git
+
+# or HTTPS
+git clone https://github.com/hafiz-fansuri/SCANS.git
+
+cd SCANS
+```
+
+### 2. Set up the Python inference bridge
+
+```bash
+cd vessel-dashboard
+pip install -r ../requirements.txt
+
+# Point the bridge at the committed model checkpoints:
+export JATI6_MODEL_DIR="$PWD/../Training/checkpoints_fyp(vessel_forecast)"
+
+# MQTT broker credentials (see "Configuration Reference" below for defaults)
+export JATI6_MQTT_USER="your_broker_username"
+export JATI6_MQTT_PASS="your_broker_password"
+
+# Optional — if you're running the dashboard on a different machine:
+export JATI6_DASHBOARD_URL="http://<dashboard-host>:8080/ingest"
+```
+
+### 3. Set up the Node.js dashboard server
+
+```bash
+cd vessel-dashboard
+npm install          # recreates node_modules/ (excluded from git)
+npm start            # or: node server.js  →  http://localhost:8080
+```
+
+### 4. Run the inference bridge
+
+```bash
+cd vessel-dashboard
+python main.py
+```
+
+The bridge connects to MQTT, calibrates the IMU + wind sensors (~8 s + up to 40 s), then enters the main loop: reads telemetry, runs the hybrid physics+PINN+XGBoost inference, and pushes live data to the dashboard.
+
+### 5. Run the training notebook (optional)
+
+To retrain or inspect the model:
+
+```bash
+pip install jupyter
+jupyter notebook
+# then open Training/Training.ipynb
+```
+
+### 6. Run post-cruise analysis (optional)
+
+```bash
+cd vessel-dashboard
+python analysis.py
+# Edit the CONFIG block at the top to point at your CSV and Jati 6 ground-truth XLSX.
+```
+
+### 7. Make changes and push back to your own device
+
+```bash
+# After editing files locally, commit and push to the repo:
+git add -A
+git commit -m "your descriptive message"
+git push origin main
+```
+
+If you want to contribute back to this repo, fork it first, then push to your fork:
+
+```bash
+git remote add myfork git@github.com:<your-username>/SCANS.git
+git push myfork main
+# Then open a Pull Request on GitHub.
+```
+
+---
+
 ## How It Works
 
 ```

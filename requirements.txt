@@ -20,3 +20,9 @@ openpyxl>=3.1                 # Excel (.xlsx) file reader for pandas
 # ── Model export / ONNX tooling (Training/checkpoints_fyp(vessel_forecast)/co.py) ──
 onnxmltools[convert]>=1.16    # XGBoost → ONNX conversion (includes xgboost converter)
 onnx>=1.14
+
+# ── Training notebook (Training/Training.ipynb) ────────────────────
+# Jupyter is required to open and run the model training notebook.
+# Install with:  jupyter notebook   (then open Training/Training.ipynb)
+jupyter>=1.0
+ipython>=8.0
