@@ -11,3 +11,10 @@ Thumbs.db
 .env
 *.sqlite
 *.db
+
+# Runtime-generated files (created by main.py during a live session)
+vessel_live_log_*.csv
+dashboard_plot*.png
+
+# Model artifacts / data (keep committed for portability — small files)
+# !include Training/checkpoints_fyp(vessel_forecast)/best_pinn.pt

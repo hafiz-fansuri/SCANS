@@ -2,6 +2,9 @@
 
 **S**pearheading **C**onditions **A**ware **N**avigation & **S**peed-forecasting system — a real-time vessel speed prediction and telemetry dashboard that fuses wind, wave, and ship-motion data to forecast vessel speed under environmental influences.
 
+[![GitHub repo](https://img.shields.io/badge/GitHub-hafiz--fansuri%2FSCANS-181717?logo=github)](https://github.com/hafiz-fansuri/SCANS)
+
+
 > Capstone / Final-Year Project by Muhammad Haznan bin Haznan (fansuri).
 > Field-tested aboard MV *Jati 6* during sea trials.
 
@@ -321,6 +324,11 @@ Edit the `CONFIG` block at the top of `analysis.py` to point at your live CSV an
 - **Mock mode:** `SCANS.ino` has `MOCK_AIRMAR = true` by default for simulation/testing without real NMEA hardware.
 - **`start.bat`** has a hardcoded ngrok path — edit `NGROK_PATH` if your ngrok is elsewhere.
 - The **session plot** (`dashboard_plot.png`) is saved on every shutdown (Ctrl-C) and plots every 10 Hz loop tick.
+- **`Training/Training.ipynb` is empty (0 bytes)** — it is a placeholder from early development and is non-essential. Model training was done in a separate environment; the committed checkpoints in `Training/checkpoints_fyp(vessel_forecast)/` are the final artifacts.
+- **`deploy_to_github.py`** is a legacy PAT-based deploy script. Preferred method: use the `gh` CLI:
+  ```bash
+  gh repo create hafiz-fansuri/SCANS --public --source=. --push
+  ```
 
 ---
 
